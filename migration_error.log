@@ -1,0 +1,29 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "dev.db" at "file:./dev.db"
+Error: P1012
+
+error: Error validating: You defined the enum `TaskStatus`. But the current connector does not support enums.
+  -->  prisma/schema.prisma:13
+   | 
+12 | 
+13 | enum TaskStatus {
+14 |   TODO
+15 |   IN_PROGRESS
+16 |   REVIEW
+17 |   DONE
+18 |   CANCELLED
+19 | }
+   | 
+error: Error validating: You defined the enum `WorkLogSource`. But the current connector does not support enums.
+  -->  prisma/schema.prisma:21
+   | 
+20 | 
+21 | enum WorkLogSource {
+22 |   MANUAL
+23 |   PREMIERE_CEP
+24 |   API
+25 | }
+   | 
+
+

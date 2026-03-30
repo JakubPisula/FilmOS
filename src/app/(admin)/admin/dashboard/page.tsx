@@ -1,65 +1,117 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, Users, Video, Clock, CheckCircle2 } from "lucide-react";
+import { 
+  Video, 
+  Clock, 
+  CheckCircle2, 
+  Play, 
+  Square,
+  AlertCircle
+} from "lucide-react";
+import { startOfDay } from "date-fns";
+import { formatDuration } from "date-fns"; // Note: customized helper is better for our case
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  // Pobieranie danych StatCard
+  const [projectCount, todoTaskCount, todayWorkLogs] = await Promise.all([
+    prisma.project.count(),
+    prisma.task.count({ where: { status: 'TODO' } }),
+    prisma.workLog.findMany({
+      where: {
+        startedAt: { gte: startOfDay(new Date()) },
+        endedAt: { not: null }
+      }
+    })
+  ]);
+
+  const todayTotalSec = todayWorkLogs.reduce((acc, log) => acc + (log.durationSec || 0), 0);
+
+  // Pobieranie aktywnego timera
+  const activeTimer = userId ? await prisma.workLog.findFirst({
+    where: { userId, endedAt: null },
+    include: { task: true }
+  }) : null;
+
+  // Ostatnie 5 wpisów
+  const recentWorkLogs = await prisma.workLog.findMany({
+    take: 5,
+    orderBy: { startedAt: 'desc' },
+    include: { task: true, user: true }
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-800">Przegląd Systemu</h2>
-        <Button className="gap-2 bg-slate-800 hover:bg-slate-700">
-          <RefreshCcw size={16} /> Synchronizuj z Notion
-        </Button>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Aktywni Klienci" value="12" icon={<Users className="text-blue-600" />} description="+2 w tym miesiącu" />
-        <StatCard title="Projekty w Toku" value="8" icon={<Video className="text-orange-600" />} description="3 wymagają uwagi" />
-        <StatCard title="Oczekujące Recenzje" value="5" icon={<Clock className="text-purple-600" />} description="Frame.io V4" />
-        <StatCard title="Zakończone (30 dni)" value="24" icon={<CheckCircle2 className="text-green-600" />} description="Zsynchronizowane z Notion" />
+        <h2 className="text-3xl font-bold tracking-tight text-slate-800">Pulpit</h2>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ostatnia Aktywność</CardTitle>
-            <CardDescription>Powiadomienia z Notion i Frame.io</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <ActivityItem
-                title="Nowy Klient: Acme Corp"
-                description="Folder Google Drive został utworzony automatycznie."
-                time="2 min temu"
-              />
-              <ActivityItem
-                title="Komentarz we Frame.io"
-                description="Klient dodał uwagi do klatki 00:12:04 w projekcie 'Promo V2'."
-                time="15 min temu"
-              />
-              <ActivityItem
-                title="Synchronizacja Notion"
-                description="Zmieniono status zadania 'Montaż końcowy' na Zakończone."
-                time="1 godz. temu"
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {activeTimer && (
+        <ActiveTimerBanner 
+          taskId={activeTimer.taskId} 
+          taskTitle={activeTimer.task.title} 
+          startedAt={activeTimer.startedAt} 
+        />
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Status Systemu</CardTitle>
-            <CardDescription>Monitoring integracji w czasie rzeczywistym</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <StatusItem label="Notion API" status="online" />
-              <StatusItem label="PostgreSQL Replica" status="online" />
-              <StatusItem label="Google Drive API" status="online" />
-              <StatusItem label="Frame.io V4 API" status="online" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard 
+          title="Projekty" 
+          value={projectCount.toString()} 
+          icon={<Video className="text-blue-600" />} 
+          description="Wszystkie projekty w bazie" 
+        />
+        <StatCard 
+          title="Zadania TODO" 
+          value={todoTaskCount.toString()} 
+          icon={<AlertCircle className="text-orange-600" />} 
+          description="Oczekujące na realizację" 
+        />
+        <StatCard 
+          title="Czas dzisiaj" 
+          value={formatSeconds(todayTotalSec)} 
+          icon={<Clock className="text-green-600" />} 
+          description="Suma zalogowanego czasu" 
+        />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ostatnia aktywność (WorkLogs)</CardTitle>
+          <CardDescription>Ostatnie wpisy czasu pracy</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentWorkLogs.map((log) => (
+              <div key={log.id} className="flex items-center justify-between border-b pb-2 last:border-0">
+                <div>
+                  <p className="text-sm font-medium">{log.task.title}</p>
+                  <p className="text-xs text-slate-500">
+                    {log.user.name} • {new Date(log.startedAt).toLocaleTimeString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold">{formatSeconds(log.durationSec || 0)}</p>
+                  <p className="text-[10px] text-slate-400 uppercase">{log.source}</p>
+                </div>
+              </div>
+            ))}
+            {recentWorkLogs.length === 0 && (
+              <p className="text-sm text-slate-500 text-center py-4">Brak ostatnich wpisów.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -79,30 +131,38 @@ function StatCard({ title, value, icon, description }: { title: string; value: s
   );
 }
 
-function ActivityItem({ title, description, time }: { title: string; description: string; time: string }) {
+function ActiveTimerBanner({ taskId, taskTitle, startedAt }: { taskId: string, taskTitle: string, startedAt: Date }) {
   return (
-    <div className="flex flex-col border-l-2 border-slate-100 pl-4 py-1">
-      <h4 className="text-sm font-semibold">{title}</h4>
-      <p className="text-xs text-slate-500">{description}</p>
-      <span className="text-[10px] text-slate-400 mt-1 uppercase">{time}</span>
+    <div className="bg-primary text-primary-foreground p-4 rounded-lg flex items-center justify-between shadow-lg animate-pulse">
+      <div className="flex items-center gap-4">
+        <div className="bg-white/20 p-2 rounded-full">
+          <Play size={20} fill="currentColor" />
+        </div>
+        <div>
+          <p className="text-xs opacity-80 uppercase font-bold tracking-wider">Aktywny Timer</p>
+          <p className="font-semibold">{taskTitle}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-6">
+        <div className="text-right">
+          <p className="text-xs opacity-80 uppercase">Rozpoczęto</p>
+          <p className="font-mono font-bold">{startedAt.toLocaleTimeString()}</p>
+        </div>
+        <Button variant="secondary" size="sm" className="gap-2">
+          <Square size={14} fill="currentColor" /> Zatrzymaj
+        </Button>
+      </div>
     </div>
   );
 }
 
-function StatusItem({ label, status }: { label: string; status: "online" | "offline" | "error" }) {
-  const statusColors = {
-    online: "bg-green-500",
-    offline: "bg-slate-300",
-    error: "bg-red-500",
-  };
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm font-medium">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-400 capitalize">{status}</span>
-        <div className={`h-2.5 w-2.5 rounded-full ${statusColors[status]}`} />
-      </div>
-    </div>
-  );
+function formatSeconds(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [
+    h > 0 ? `${h}h` : null,
+    m > 0 ? `${m}m` : null,
+    s > 0 || (h === 0 && m === 0) ? `${s}s` : null
+  ].filter(Boolean).join(' ');
 }

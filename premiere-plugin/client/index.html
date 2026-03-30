@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>FilmOS Connector</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body className="host-dark">
+    <div id="app">
+        <header>
+            <div className="tabs">
+                <button className="tab-btn active" data-tab="timer">Timer</button>
+                <button className="tab-btn" data-tab="tasks">Zadania</button>
+                <button className="tab-btn" data-tab="settings">Ustawienia</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Timer Tab -->
+            <section id="tab-timer" className="tab-content active">
+                <div className="active-task-info">
+                    <p className="label">Aktywne zadanie</p>
+                    <h2 id="current-task-name">Wybierz zadanie...</h2>
+                    <p id="current-project-name" className="sublabel">-</p>
+                </div>
+                
+                <div className="timer-display">
+                    <span id="timer-clock">00:00:00</span>
+                </div>
+
+                <div className="controls">
+                    <button id="btn-start" className="btn btn-primary">START</button>
+                    <button id="btn-stop" className="btn btn-danger hidden">STOP</button>
+                </div>
+                
+                <div className="context-info">
+                    <p id="premiere-seq">Sekwencja: -</p>
+                    <p id="premiere-tc">TC: 00:00:00:00</p>
+                </div>
+            </section>
+
+            <!-- Tasks Tab -->
+            <section id="tab-tasks" className="tab-content">
+                <div className="search-box">
+                    <input type="text" id="task-search" placeholder="Szukaj zadania...">
+                </div>
+                <div id="tasks-list" className="list-container">
+                    <p className="empty-msg">Ładowanie zadań...</p>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="tab-settings" className="tab-content">
+                <div className="form-group">
+                    <label>Token API</label>
+                    <input type="password" id="api-token" placeholder="Wklej token z FilmOS">
+                </div>
+                <div className="form-group">
+                    <label>ID Projektu</label>
+                    <input type="text" id="project-id" placeholder="CUID projektu">
+                </div>
+                <button id="btn-save-settings" className="btn btn-secondary">Zapisz konfigurację</button>
+                
+                <div className="status-box">
+                    <p id="connection-status">Status: Brak połączenia</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Biblioteki -->
+    <script src="../libs/CSInterface.js"></script>
+    <script src="../libs/axios.min.js"></script>
+    <!-- Logika -->
+    <script src="js/main.js"></script>
+</body>
+</html>

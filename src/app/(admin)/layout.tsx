@@ -1,17 +1,39 @@
 import Link from "next/link";
-import { LayoutDashboard, Users, CheckSquare, Settings, LogOut } from "lucide-react";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { 
+  LayoutDashboard, 
+  FolderOpen, 
+  Clock, 
+  Settings, 
+  LogOut,
+  Users,
+  CheckSquare
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  // Opcjonalnie: verify role if session.user.role exists
+  if ((session.user as any).role !== 'ROLE_ADMIN') {
+    // redirect("/dashboard"); // Redirect clients to their dashboard
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 border-r bg-white shadow-sm transition-all duration-300">
+      <aside className="fixed inset-y-0 left-0 w-64 border-r bg-white shadow-sm">
         <div className="flex h-16 items-center border-b px-6">
-          <Link href="/admin" className="flex items-center gap-2 font-bold text-xl text-primary">
+          <Link href="/admin/dashboard" className="flex items-center gap-2 font-bold text-xl text-primary">
             <span className="bg-primary text-primary-foreground p-1.5 rounded-md">F</span>
             <span>FilmOS Admin</span>
           </Link>
@@ -20,25 +42,34 @@ export default function AdminLayout({
           <SidebarItem href="/admin/dashboard" icon={<LayoutDashboard size={20} />} label="Pulpit" />
           <SidebarItem href="/admin/clients" icon={<Users size={20} />} label="Klienci" />
           <SidebarItem href="/admin/tasks" icon={<CheckSquare size={20} />} label="Zlecenia" />
+          <SidebarItem href="/admin/projects" icon={<FolderOpen size={20} />} label="Projekty" />
+          <SidebarItem href="/admin/worklogs" icon={<Clock size={20} />} label="Czas Pracy" />
+          
           <div className="pt-4 mt-4 border-t border-slate-100">
             <SidebarItem href="/admin/settings" icon={<Settings size={20} />} label="Ustawienia" />
-            <button className="flex items-center w-full gap-3 rounded-lg px-3 py-2 text-slate-500 transition-all hover:bg-slate-100 hover:text-primary">
-              <LogOut size={20} />
-              <span>Wyloguj</span>
-            </button>
+            <form action="/api/auth/signout" method="POST">
+              <button type="submit" className="flex items-center w-full gap-3 rounded-lg px-3 py-2 text-slate-500 transition-all hover:bg-slate-100 hover:text-destructive">
+                <LogOut size={20} />
+                <span>Wyloguj</span>
+              </button>
+            </form>
           </div>
         </nav>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 pl-64 transition-all duration-300">
+      <main className="flex-1 pl-64">
         <header className="sticky top-0 z-10 h-16 border-b bg-white/80 px-8 backdrop-blur-sm flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-slate-700 uppercase tracking-wider">Panel Administracyjny</h1>
+          <h1 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Panel Administracyjny</h1>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium">Administrator</p>
-              <p className="text-xs text-slate-400">admin@filmos.pro</p>
+              <p className="text-sm font-medium">{session.user?.name || 'Administrator'}</p>
+              <p className="text-xs text-slate-400">{session.user?.email}</p>
             </div>
+            <Avatar>
+              <AvatarImage src={session.user?.image || ''} />
+              <AvatarFallback>{session.user?.name?.[0] || 'A'}</AvatarFallback>
+            </Avatar>
           </div>
         </header>
         <div className="p-8">

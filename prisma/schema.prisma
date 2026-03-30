@@ -6,8 +6,22 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum WorkLogSource {
+  MANUAL
+  PREMIERE_CEP
+  API
 }
 
 model Account {
@@ -47,6 +61,10 @@ model User {
   accounts      Account[]
   sessions      Session[]
   clientProfile Client?
+  projects      Project[]
+  tasks         Task[]
+  workLogs      WorkLog[]
+  apiTokens     ApiToken[]
 }
 
 model VerificationToken {
@@ -71,15 +89,67 @@ model Client {
 }
 
 model Project {
-  id             String    @id @default(cuid())
-  title          String
-  status         String    @default("W kolejce")
-  notionPageId   String?   @unique
-  frameioProjectId String? @unique
-  clientId       String
-  client         Client    @relation(fields: [clientId], references: [id])
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String     @id @default(cuid())
+  name             String
+  clientName       String?
+  notionId         String?    @unique
+  driveFolderId    String?
+  frameIoProjectId String?
+  status           TaskStatus @default(TODO)
+  ownerId          String
+  owner            User       @relation(fields: [ownerId], references: [id])
+  clientId         String?
+  client           Client?    @relation(fields: [clientId], references: [id])
+  tasks            Task[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  dueDate     DateTime?
+  order       Int        @default(0)
+  notionId    String?    @unique
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo  String?
+  user        User?      @relation(fields: [assignedTo], references: [id])
+  workLogs    WorkLog[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model WorkLog {
+  id          String        @id @default(cuid())
+  taskId      String
+  task        Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  source      WorkLogSource @default(MANUAL)
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationSec Int?
+  note        String?
+  premiereSeq String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([startedAt])
+}
+
+model ApiToken {
+  id        String    @id @default(cuid())
+  token     String    @unique @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String    @default("Premiere Plugin")
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model Config {
